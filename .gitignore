@@ -1,0 +1,10 @@
+# Ignore ARCHIVES content
+ARCHIVES/*
+# Ignore SERVERS content
+SERVERS/*
+# Ignore logs
+SERVER/logs/*
+# Ignore outputs
+SERVER/output/*
+# Ignore .env content
+SERVER/env/*
