@@ -1,0 +1,32 @@
+--
+-- Database file created by SERVER-MANAGER.sh
+-- Import this file into phpMyAdmin or your MySQL server to populate the `servers` table.
+--
+
+START TRANSACTION;
+-- Uncomment the following line to commit the database changes after import
+-- COMMIT;
+
+CREATE TABLE IF NOT EXISTS `servers` (
+  `SERVER_ID` mediumint NOT NULL,
+  `SERVER_TYPE` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci NOT NULL,
+  `SERVER_NAME` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci NOT NULL,
+  `SERVER_VERSION` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci NOT NULL,
+  `SERVER_JAVA_VERSION` tinyint NOT NULL,
+  `SERVER_PATH` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci NOT NULL,
+  `SERVER_LOADER` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci,
+  `SERVER_LOADER_VERSION` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci,
+  `SERVER_MODS_AMOUNT` smallint DEFAULT NULL,
+  `SERVER_PACKAGE_SIZE` smallint DEFAULT NULL,
+  `SERVER_ICON` tinytext CHARACTER SET utf16 COLLATE utf16_polish_ci NOT NULL,
+  `DATE` date NOT NULL,
+  `SERVER_ACTIVE` tinyint(1) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf16 COLLATE=utf16_polish_ci;
+
+--
+-- Dumping data for table `servers`
+--
+INSERT INTO servers (SERVER_ID, SERVER_TYPE, SERVER_NAME, SERVER_VERSION, SERVER_JAVA_VERSION, SERVER_PATH, SERVER_LOADER, SERVER_LOADER_VERSION, SERVER_MODS_AMOUNT, SERVER_PACKAGE_SIZE, SERVER_ICON, DATE, SERVER_ACTIVE) VALUES
+(1, 'VANILLA', 'Trzeci-Server-Testowy', '1.21.1', 21, '/home/Minecraft/SERVERS/VANILLA/Trzeci-Server-Testowy', '', '', 0, 0, '', '2026-04-14', 0);
+INSERT INTO servers (SERVER_ID, SERVER_TYPE, SERVER_NAME, SERVER_VERSION, SERVER_JAVA_VERSION, SERVER_PATH, SERVER_LOADER, SERVER_LOADER_VERSION, SERVER_MODS_AMOUNT, SERVER_PACKAGE_SIZE, SERVER_ICON, DATE, SERVER_ACTIVE) VALUES
+(1, 'VANILLA', '4-Server', '1.12.2', 17, '/home/Minecraft/SERVERS/VANILLA/4-Server', '', '', 0, 0, '', '2026-04-14', 0);
