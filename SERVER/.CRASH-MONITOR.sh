@@ -2,7 +2,7 @@
 
 # --------------------------------------------------------------------------------
 # Description:  Crash monitor for Minecraft server (manual output + cron logging)
-# Usage:        crontab -e -> * * * * * /home/Minecraft/SERVER/.SERVER-HANDLER.sh
+# Usage:        Paste: ( crontab -l 2>/dev/null; echo '* * * * * /home/Minecraft/SERVER/.CRASH-MONITOR.sh' ) | crontab -
 # Created by:   Kaiman
 # Since:        21/08/2024 (DD/MM/YYYY)
 # --------------------------------------------------------------------------------
