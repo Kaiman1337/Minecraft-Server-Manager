@@ -8,7 +8,7 @@ setopt nullglob  # Allow globs to expand to nothing if no matches
 # Created by:   Kaiman
 # Since:        21/08/2024 (DD/MM/YYYY)
 # --------------------------------------------------------------------------------
-# Version:      3.0
+# Version:      3.2
 # Last Updated: 14/04/2026 (DD/MM/YYYY)
 # --------------------------------------------------------------------------------
 

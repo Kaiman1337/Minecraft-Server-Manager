@@ -2,9 +2,12 @@
 
 # --------------------------------------------------------------------------------
 # Description:  Crash monitor for Minecraft server (manual output + cron logging)
-# Usage:        crontab -e -> * * * * * /home/Minecraft/SERVER/monitor-crash.sh
+# Usage:        crontab -e -> * * * * * /home/Minecraft/SERVER/.SERVER-HANDLER.sh
 # Created by:   Kaiman
-# Version:      3.0
+# Since:        21/08/2024 (DD/MM/YYYY)
+# --------------------------------------------------------------------------------
+# Version:      3.2
+# Last Updated: 15/04/2026 (DD/MM/YYYY)
 # --------------------------------------------------------------------------------
 
 CURRENT_DATE=$(date '+%Y-%m-%d')
@@ -58,7 +61,7 @@ loadEnvConfig() {
     if [[ -f "$PROPERTIES_FILE" ]]; then
         source "$PROPERTIES_FILE"
     else
-        log "ERROR: Missing env file: $PROPERTIES_FILE" "CHANGE"
+        echo -e "ERROR: Missing env file: $PROPERTIES_FILE"
         exit 1
     fi
 }
