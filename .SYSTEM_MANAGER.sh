@@ -2,157 +2,227 @@
 
 # --------------------------------------------------------------------------------
 # Description:  System, firewall, Zsh & Tmux manager
-# Usage:        Run the file using `bash .SYSTEM_MANAGER.sh` on first install, or `zsh .SYSTEM_MANAGER.sh` after zsh is installed
+# Usage:        bash .SYSTEM_MANAGER.sh
 # Created by:   Kaiman
-# Since:        22/08/2024 (DD/MM/YYYY)
-# --------------------------------------------------------------------------------
-# Version:      3.0 --Initial setup and basic system update/upgrade functions 
-# Last Updated: 14/04/2026 (DD/MM/YYYY)
+# Version:      3.1
+# Last Updated: 16/04/2026 (DD/MM/YYYY)
 # --------------------------------------------------------------------------------
 
-# Center text & color prompt
+set -u
+
+export DEBIAN_FRONTEND=noninteractive
+
+LINE="====================================================================================="
+
+PACKAGES=(
+  zsh
+  git
+  curl
+  jq
+  tmux
+  cron
+  firewalld
+)
+
+# ----------------------------------------------------------
+# UI
+# ----------------------------------------------------------
 center_text() {
     local text="$1"
-    local line="====================================================================================="
-    local line_width=${#line}
+    local line_width=${#LINE}
     local text_width=${#text}
-    local padding=$(((line_width - text_width) / 2))
+    local padding=0
 
-    printf "\e[1;37m%s\e[0m\n" "$line"                  
-    printf "\n%*s\e[1;33m%s\e[0m\n" $padding "" "$text" 
-    printf "\n\e[1;37m%s\e[0m\n" "$line"                
-    printf "\n\e[1;33m"                                 
+    if (( line_width > text_width )); then
+        padding=$(( (line_width - text_width) / 2 ))
+    fi
+
+    printf "\e[1;37m%s\e[0m\n" "$LINE"
+    printf "\n%*s\e[1;33m%s\e[0m\n" "$padding" "" "$text"
+    printf "\n\e[1;37m%s\e[0m\n\n" "$LINE"
 }
 
-# ----------------------------------------------------------
-# Prompts
-# ----------------------------------------------------------
-sysUpdatePrompt() {
-    echo -e "\e[1;33m[SYSTEM: Update] \e[0;37mSystem updated!\e[0m"
-    echo -e "\e[1;33m[SYSTEM: Upgrade] \e[0;37mAll packages upgraded!\e[0m"
-    echo -e "\e[1;33m[SYSTEM: Cleanup] \e[0;37mTemp files removed...\e[0m\n"
+pause_return() {
+    echo -e "\e[1;32mPress ENTER to return to menu...\e[0m"
+    read -r
 }
 
-zshPrompt() {
-    echo -e "\e[1;33m[SYSTEM: Zsh + P10k] \e[0;37mZsh & Powerlevel10k installed & configured!\e[0m\n"
-    echo -e "\e[1;33m[SYSTEM: Zsh + P10k] \e[0;37mDefault shell changed to zsh!\e[0m\n"
-    echo -e "\e[1;32mRestart terminal or run 'exec zsh' to use new prompt\e[0m\n"
+log_info() {
+    echo -e "\e[1;33m[INFO] \e[0;37m$1\e[0m"
 }
 
-tmuxPrompt() {
-    echo -e "\e[1;33m[SYSTEM: Tmux] \e[0;37mTmux installed successfully!\e[0m\n"
-    echo -e "\e[1;33m[SYSTEM: Tmux] \e[0;37mRun 'tmux' to start (uses default config)\e[0m\n"
+log_ok() {
+    echo -e "\e[1;32m[OK] \e[0;37m$1\e[0m"
 }
 
-firewallPrompt() {
-    echo -e "\e[1;33m[SYSTEM: Firewall] \e[0;37mFirewall installed & configured!\e[0m\n"
+log_warn() {
+    echo -e "\e[1;31m[WARN] \e[0;37m$1\e[0m"
 }
 
-# ----------------------------------------------------------
-# System update & packages upgrade
-# ----------------------------------------------------------
-systemUpdateAndUpgrade() {
-    center_text "[SYSTEM UPDATE & UPGRADE]"
+show_date() {
     date "+[ DATE: %y/%m/%d | TIME: %H:%M:%S ]"
+}
 
-    echo -e "\n\e[1;33m[SYSTEM: Update] \e[0;37mStarting system update...\e[0m\n"
+# ----------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------
+require_sudo() {
+    if ! sudo -v; then
+        log_warn "Sudo authentication failed."
+        exit 1
+    fi
+}
+
+apt_update_once() {
+    log_info "Updating package lists..."
     sudo apt update
-    echo -e "\n\e[1;33m[SYSTEM: Upgrade] \e[0;37mStarting system upgrade...\e[0m\n"
+}
+
+install_package_if_missing() {
+    local pkg="$1"
+
+    if dpkg -s "$pkg" >/dev/null 2>&1; then
+        log_ok "Package already installed: $pkg"
+    else
+        log_info "Installing package: $pkg"
+        sudo apt install -y "$pkg"
+    fi
+}
+
+install_required_packages() {
+    local pkg
+    for pkg in "${PACKAGES[@]}"; do
+        install_package_if_missing "$pkg"
+    done
+}
+
+enable_service_now() {
+    local service="$1"
+
+    log_info "Enabling and starting service: $service"
+    sudo systemctl enable --now "$service"
+}
+
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
+
+# ----------------------------------------------------------
+# System update & upgrade
+# ----------------------------------------------------------
+system_update_and_upgrade() {
+    center_text "[SYSTEM UPDATE & UPGRADE]"
+    show_date
+    echo
+
+    log_info "Starting system update..."
+    sudo apt update
+
+    log_info "Starting system upgrade..."
     sudo apt upgrade -y
     sudo apt full-upgrade -y
-    echo -e "\n\e[1;33m[SYSTEM: Cleanup] \e[0;37mRemoving temp files...\e[0m\n"
+
+    log_info "Removing unnecessary packages..."
     sudo apt autoremove -y
-    sudo apt autoclean
+    sudo apt autoclean -y
 
+    echo
     center_text "[SYSTEM UPDATE COMPLETE]"
-    sysUpdatePrompt
-    echo -e "\e[1;32mPress ENTER to return to menu...\e[0m"
-    read PRESSED_KEY
-}
-
-installPackageIfMissing() {
-    local pkg="$1"
-    if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-        echo -e "\n\e[1;33m[SYSTEM: Install] \e[0;37mInstalling missing package: $pkg...\e[0m"
-        sudo apt install -y "$pkg"
-    else
-        echo -e "\n\e[1;33m[SYSTEM: Install] \e[0;37mPackage already installed: $pkg\e[0m"
-    fi
+    log_ok "System updated and upgraded."
+    pause_return
 }
 
 # ----------------------------------------------------------
-# Firewall installation & configuration 
+# Firewall
 # ----------------------------------------------------------
-firewallInstallationAndConfig() {
+configure_firewalld() {
     center_text "[FIREWALL CONFIG]"
-    date "+[ DATE: %y/%m/%d | TIME: %H:%M:%S ]"
+    show_date
+    echo
 
-    echo -e "\n\e[1;33m[SYSTEM: Firewall] \e[0;37mStarting firewalld installation...\e[0m\n"
-    sudo apt install firewalld -y
-    sudo systemctl enable firewalld
-    sudo systemctl start firewalld
-    sudo firewall-cmd --state
+    install_package_if_missing firewalld
+    enable_service_now firewalld
 
-    echo -e "\n\e[1;33m[SYSTEM: Firewall] \e[0;37mDisabling ufw...\e[0m\n"
-    sudo ufw disable
+    if command_exists ufw; then
+        log_info "Disabling UFW to avoid conflicts..."
+        sudo ufw disable || true
+        sudo systemctl disable --now ufw 2>/dev/null || true
+    else
+        log_info "UFW not installed. Skipping."
+    fi
 
-    echo -e "\n\e[1;33m[SYSTEM: Firewall] \e[0;37mOpening Minecraft port 25565 tcp/udp...\e[0m\n"
-    sudo firewall-cmd --permanent --zone=public --add-port=25565/tcp
-    sudo firewall-cmd --permanent --zone=public --add-port=25565/udp
-
-    echo -e "\n\e[1;33m[SYSTEM: Firewall] \e[0;37mOpening HTTPS port 443/tcp...\e[0m\n"
-    sudo firewall-cmd --permanent --zone=public --add-port=443/tcp
-
-    echo -e "\n\e[1;33m[SYSTEM: Firewall] \e[0;37mEnsuring SSH port 22/tcp is open...\e[0m\n"
+    log_info "Opening SSH port 22/tcp..."
     sudo firewall-cmd --permanent --zone=public --add-port=22/tcp
 
-    echo -e "\n\e[1;33m[SYSTEM: Firewall] \e[0;37mApplying changes...\e[0m\n"
-    sudo firewall-cmd --reload
-    sudo firewall-cmd --list-all
+    log_info "Opening Minecraft port 25565/tcp..."
+    sudo firewall-cmd --permanent --zone=public --add-port=25565/tcp
 
+    log_info "Opening Minecraft port 25565/udp..."
+    sudo firewall-cmd --permanent --zone=public --add-port=25565/udp
+
+    log_info "Opening HTTPS port 443/tcp..."
+    sudo firewall-cmd --permanent --zone=public --add-port=443/tcp
+
+    log_info "Reloading firewalld..."
+    sudo firewall-cmd --reload
+
+    log_info "Checking firewall state..."
+    sudo firewall-cmd --state
+
+    echo
+    log_ok "Firewall installed and configured."
+    sudo firewall-cmd --list-all
+    echo
     center_text "[FIREWALL CONFIG COMPLETE]"
-    firewallPrompt
-    echo -e "\e[1;32mPress ENTER to return to menu...\e[0m"
-    read PRESSED_KEY
+    pause_return
 }
 
 # ----------------------------------------------------------
-# Zsh + Powerlevel10k installation & configuration
+# Zsh + Oh My Zsh + Powerlevel10k
 # ----------------------------------------------------------
-zshInstallationAndConfig() {
+configure_zsh() {
     center_text "[ZSH + POWERLEVEL10K]"
-    date "+[ DATE: %y/%m/%d | TIME: %H:%M:%S ]"
+    show_date
+    echo
 
-    echo -e "\n\e[1;33m[SYSTEM: Zsh] \e[0;37mChecking required packages: zsh, git, curl, jq...\e[0m\n"
-    installPackageIfMissing zsh
-    installPackageIfMissing git
-    installPackageIfMissing curl
-    installPackageIfMissing jq
+    install_package_if_missing zsh
+    install_package_if_missing git
+    install_package_if_missing curl
+    install_package_if_missing jq
 
-    if [ ! -d "${ZDOTDIR:-$HOME}/.oh-my-zsh" ]; then
-        echo -e "\n\e[1;33m[SYSTEM: OhMyZsh] \e[0;37mInstalling OhMyZsh...\e[0m\n"
-        sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    if [[ ! -d "$HOME/.oh-my-zsh" ]]; then
+        log_info "Installing Oh My Zsh..."
+        RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
     else
-        echo -e "\n\e[1;33m[SYSTEM: OhMyZsh] \e[0;37mOhMyZsh is already installed. Skipping install.\e[0m\n"
+        log_ok "Oh My Zsh already installed."
     fi
 
-    local zsh_custom="${ZDOTDIR:-$HOME}/.oh-my-zsh/custom"
+    local zsh_custom="$HOME/.oh-my-zsh/custom"
     mkdir -p "$zsh_custom/themes" "$zsh_custom/plugins"
 
-    if [ ! -d "$zsh_custom/themes/powerlevel10k" ]; then
-        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$zsh_custom/themes/powerlevel10k" &>/dev/null
-    fi
-    if [ ! -d "$zsh_custom/plugins/zsh-autosuggestions" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$zsh_custom/plugins/zsh-autosuggestions" &>/dev/null
-    fi
-    if [ ! -d "$zsh_custom/plugins/zsh-syntax-highlighting" ]; then
-        git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$zsh_custom/plugins/zsh-syntax-highlighting" &>/dev/null
+    if [[ ! -d "$zsh_custom/themes/powerlevel10k" ]]; then
+        log_info "Installing powerlevel10k..."
+        git clone --depth=1 https://github.com/romkatv/powerlevel10k.git "$zsh_custom/themes/powerlevel10k"
+    else
+        log_ok "powerlevel10k already installed."
     fi
 
-    local zshrc_file="${ZDOTDIR:-$HOME}/.zshrc"
-    if [ ! -f "$zshrc_file" ]; then
-        touch "$zshrc_file"
+    if [[ ! -d "$zsh_custom/plugins/zsh-autosuggestions" ]]; then
+        log_info "Installing zsh-autosuggestions..."
+        git clone --depth=1 https://github.com/zsh-users/zsh-autosuggestions "$zsh_custom/plugins/zsh-autosuggestions"
+    else
+        log_ok "zsh-autosuggestions already installed."
     fi
+
+    if [[ ! -d "$zsh_custom/plugins/zsh-syntax-highlighting" ]]; then
+        log_info "Installing zsh-syntax-highlighting..."
+        git clone --depth=1 https://github.com/zsh-users/zsh-syntax-highlighting "$zsh_custom/plugins/zsh-syntax-highlighting"
+    else
+        log_ok "zsh-syntax-highlighting already installed."
+    fi
+
+    local zshrc_file="$HOME/.zshrc"
+    [[ -f "$zshrc_file" ]] || touch "$zshrc_file"
 
     if grep -q '^ZSH_THEME=' "$zshrc_file"; then
         sed -i 's|^ZSH_THEME=.*|ZSH_THEME="powerlevel10k/powerlevel10k"|' "$zshrc_file"
@@ -166,73 +236,103 @@ zshInstallationAndConfig() {
         printf '\nplugins=(git zsh-autosuggestions zsh-syntax-highlighting)\n' >> "$zshrc_file"
     fi
 
-    local current_shell
-    current_shell=$(getent passwd "$USER" | cut -d: -f7 2>/dev/null || echo "$SHELL")
-    if [[ "$current_shell" == */zsh ]]; then
-        echo -e "\n\e[1;33m[SYSTEM: Zsh] \e[0;37mZsh is already the default login shell.\e[0m\n"
-    else
-        echo -e "\n\e[1;33m[SYSTEM: Zsh] \e[0;37mSetting Zsh as default shell...\e[0m\n"
-        chsh -s "$(command -v zsh)"
+    local zsh_path
+    zsh_path="$(command -v zsh)"
+
+    if [[ -n "$zsh_path" ]]; then
+        local current_shell
+        current_shell="$(getent passwd "$USER" | cut -d: -f7)"
+
+        if [[ "$current_shell" != "$zsh_path" ]]; then
+            log_info "Setting Zsh as default shell..."
+            chsh -s "$zsh_path"
+        else
+            log_ok "Zsh is already the default shell."
+        fi
     fi
 
-    center_text "[ZSH + P10K COMPLETE]"
-    zshPrompt
-    echo -e "\e[1;32mPress ENTER to return to menu...\e[0m"
-    read PRESSED_KEY
+    echo
+    center_text "[ZSH + POWERLEVEL10K COMPLETE]"
+    log_ok "Zsh and Powerlevel10k installed and configured."
+    echo -e "\e[1;32mRestart terminal or run 'exec zsh' to use new shell.\e[0m"
+    pause_return
 }
 
 # ----------------------------------------------------------
-# Tmux installation ONLY (no configuration)
+# Tmux
 # ----------------------------------------------------------
-tmuxInstallationAndConfig() {
+configure_tmux() {
     center_text "[TMUX INSTALLATION]"
-    date "+[ DATE: %y/%m/%d | TIME: %H:%M:%S ]"
+    show_date
+    echo
 
-    echo -e "\n\e[1;33m[SYSTEM: Tmux] \e[0;37mInstalling Tmux...\e[0m\n"
-    sudo apt install tmux -y
+    install_package_if_missing tmux
 
-    echo -e "\n\e[1;33m[SYSTEM: Tmux] \e[0;37mTmux installed! No config created.\e[0m\n"
-    tmux -V
-
-    center_text "[TMUX INSTALL COMPLETE]"
-    tmuxPrompt
-    echo -e "\e[1;32mPress ENTER to return to menu...\e[0m"
-    read PRESSED_KEY
-}
-
-initializeFirstRun() {
-    center_text "[INITIALIZE SYSTEM]"
-    date "+[ DATE: %y/%m/%d | TIME: %H:%M:%S ]"
-
-    echo -e "
-\e[1;33m[SYSTEM: Initialize] \e[0;37mUpdating package lists...\e[0m
-"
-    sudo apt update
-
-    echo -e "
-\e[1;33m[SYSTEM: Initialize] \e[0;37mChecking essential packages: zsh git curl jq tmux...\e[0m
-"
-    installPackageIfMissing zsh
-    installPackageIfMissing git
-    installPackageIfMissing curl
-    installPackageIfMissing jq
-    installPackageIfMissing tmux
-
-    if ! command -v jq >/dev/null 2>&1; then
-        echo -e "\n\e[1;31m[SYSTEM: Initialize] ERROR: jq installation failed.\e[0m"
+    if command_exists tmux; then
+        log_ok "Tmux installed successfully."
+        tmux -V
+    else
+        log_warn "Tmux installation failed."
     fi
 
-    zshInstallationAndConfig
+    echo
+    center_text "[TMUX INSTALL COMPLETE]"
+    pause_return
+}
 
+# ----------------------------------------------------------
+# Cron
+# ----------------------------------------------------------
+configure_cron() {
+    center_text "[CRON CONFIG]"
+    show_date
+    echo
+
+    install_package_if_missing cron
+    enable_service_now cron
+
+    if command_exists crontab; then
+        log_ok "Cron installed successfully."
+        crontab -l >/dev/null 2>&1 || true
+    else
+        log_warn "crontab command is still unavailable."
+    fi
+
+    echo
+    center_text "[CRON CONFIG COMPLETE]"
+}
+
+# ----------------------------------------------------------
+# First run
+# ----------------------------------------------------------
+initialize_first_run() {
+    center_text "[INITIALIZE SYSTEM]"
+    show_date
+    echo
+
+    apt_update_once
+    install_required_packages
+
+    enable_service_now cron
+    enable_service_now firewalld
+
+    configure_cron
+    configure_firewalld
+    configure_tmux
+    configure_zsh
+
+    echo
     center_text "[INITIALIZE COMPLETE]"
-    echo -e "\e[1;32mPress ENTER to return to menu...\e[0m"
-    read PRESSED_KEY
+    log_ok "First-run initialization finished."
+    pause_return
 }
 
 # ----------------------------------------------------------
 # Main menu
 # ----------------------------------------------------------
 main() {
+    require_sudo
+
     while true; do
         clear
         center_text "[SYSTEM & DEVELOPMENT MANAGER]"
@@ -242,15 +342,21 @@ main() {
         echo -e "\e[1;31m[Q] QUIT\e[0m"
         echo -ne "\n\e[1;33m> Select option [1–3 or Q]: \e[0m"
         read -r PRESSED_KEY
-        echo ""
+        echo
 
         case "$PRESSED_KEY" in
-            1) clear; initializeFirstRun ;;
-            2) clear; systemUpdateAndUpgrade ;;
-            3) 
+            1)
                 clear
-                systemUpdateAndUpgrade
-                firewallInstallationAndConfig 
+                initialize_first_run
+                ;;
+            2)
+                clear
+                system_update_and_upgrade
+                ;;
+            3)
+                clear
+                system_update_and_upgrade
+                configure_firewalld
                 ;;
             [qQ])
                 clear
@@ -259,7 +365,7 @@ main() {
                 ;;
             *)
                 echo -e "\n\e[1;31mInvalid option '$PRESSED_KEY'.\nPress ENTER to try again.\e[0m"
-                read
+                read -r
                 ;;
         esac
     done
