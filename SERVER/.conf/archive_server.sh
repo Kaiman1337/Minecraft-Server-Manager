@@ -18,7 +18,7 @@ archiveServer() {
         options+=("${entry:t}")
     done
 
-    if [[ -z $SERVER_NAME ]]; then
+        if [[ -z $SERVER_NAME ]]; then
         while true; do
             clear
             center_text "[SELECT SERVER TO ARCHIVE]"
@@ -27,30 +27,83 @@ archiveServer() {
                 printf "\e[1;32m[%d]\e[1;33m %s\n" "$i" "${options[i]}"
             done
             echo -e "\e[1;31m[Q] QUIT"
-            echo -ne "\n\e[1;33m[CONSOLE: SERVERS] Select server type [press key 1–${#options[@]} or Q to quit]:\e[37m "
-            read -rk1 PRESSED_KEY
+            echo -ne "\n\e[1;33m[CONSOLE: SERVERS] Select servers to archive [e.g. 5 | 40 23 15 | 4-13 | 1 3 7-12]: \e[37m"
+            read -r PRESSED_KEY
 
             case "$PRESSED_KEY" in
                 [qQ])
                     clear
-                    chooseServerType ARCHIVE
-                    ;;
-                [1-9] | [0-9])
-                    if ((PRESSED_KEY >= 1 && PRESSED_KEY <= ${#options[@]})); then
-                        local SERVER_NAME="${options[PRESSED_KEY]%}"
-                        echo -e "\n\e[1;33m[CONSOLE: SERVERS] Choosen: \e[37m$SERVER_NAME\n"
-                        filename="$SERVER_DIR/$SERVER_NAME"
-                        break
-                    else
-                        echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid number. \nPress 'ENTER' to try again."
-                        read PRESSED_KEY
-                    fi
-                    ;;
-                *)
-                    echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid option '$PRESSED_KEY'. \nPress 'ENTER' to try again."
-                    read PRESSED_KEY
+                    chooseServerType DELETE
+                    return
                     ;;
             esac
+
+            local token start end n
+            local -a selections unique_choices selected_names
+            selections=()
+            selected_names=()
+
+            for token in ${(s: :)PRESSED_KEY}; do
+                if [[ "$token" =~ '^[0-9]+$' ]]; then
+                    if (( token >= 1 && token <= ${#options[@]} )); then
+                        selections+=("$token")
+                    else
+                        echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid number: $token\n\e[1;37mPress 'ENTER' to try again..."
+                        read
+                        selections=()
+                        break
+                    fi
+
+                elif [[ "$token" =~ '^[0-9]+-[0-9]+$' ]]; then
+                    start=${token%-*}
+                    end=${token#*-}
+
+                    if (( start > end )); then
+                        local tmp="$start"
+                        start="$end"
+                        end="$tmp"
+                    fi
+
+                    if (( start >= 1 && end <= ${#options[@]} )); then
+                        for ((n = start; n <= end; n++)); do
+                            selections+=("$n")
+                        done
+                    else
+                        echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid range: $token\n\e[1;37mPress 'ENTER' to try again..."
+                        read
+                        selections=()
+                        break
+                    fi
+
+                else
+                    echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid input: $token\n\e[1;37mPress 'ENTER' to try again..."
+                    read
+                    selections=()
+                    break
+                fi
+            done
+
+            if (( ${#selections[@]} == 0 )); then
+                continue
+            fi
+
+            unique_choices=(${(un)selections})
+
+            echo -e "\n\e[1;33m[CONSOLE: SERVERS] Selected servers:\e[37m"
+            for n in "${unique_choices[@]}"; do
+                selected_names+=("${options[n]}")
+                echo -e "\e[1;32m[$n]\e[37m ${options[n]}"
+            done
+
+            echo -ne "\n\e[1;31m[CONSOLE: SERVERS] Confirm delete selected servers? [Y/N]: \e[37m"
+            read -r CONFIRM_DELETE
+
+            if [[ "$CONFIRM_DELETE" == [Yy] ]]; then
+                for SERVER_NAME in "${selected_names[@]}"; do
+                    deleteServer "$SERVER_TYPE" "$SERVER_NAME"
+                done
+                return
+            fi
         done
     fi
 

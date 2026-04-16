@@ -6,5 +6,7 @@ SERVERS/*
 SERVER/logs/*
 # Ignore outputs
 SERVER/output/*
+# Ignore database content
+SERVER/db/*
 # Ignore .env content
 SERVER/env/*

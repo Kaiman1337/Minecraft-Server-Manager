@@ -30,33 +30,36 @@ stopStartRestartServer() {
                 center_text "[SELECT SERVER TO RESTART]"
             fi
 
-            echo ""
+            ACTIVE_SESSIONS=$(tmux list-sessions | sed 's/^/     - /; s/windows/window/')
+            echo -e "\e[1;31mACTIVE SERVERS:\n$ACTIVE_SESSIONS"
+            echo -e "\n\e[1;37m=====================================================================================\n"
             for ((i = 1; i <= ${#options[@]}; i++)); do
                 printf "\e[1;32m[%d]\e[1;33m %s\n" "$i" "${options[i]}"
             done
             echo -e "\e[1;31m[Q] QUIT"
-            echo -ne "\n\e[1;33m[CONSOLE: SERVERS] Select server type [press key 1–${#options[@]} or Q to quit]:\e[37m "
-            read -rk1 PRESSED_KEY
+            echo -ne "\n\e[1;33m[CONSOLE: SERVERS] Select server [enter 1–${#options[@]} or Q to quit]:\e[37m"
+            read -r PRESSED_KEY
 
             case "$PRESSED_KEY" in
                 [qQ])
                     clear
-                    chooseServerType $ACTION
-                    ;;
-                [1-9] | [0-9])
-                    if ((PRESSED_KEY >= 1 && PRESSED_KEY <= ${#options[@]})); then
-                        local SERVER_NAME="${options[PRESSED_KEY]%}"
-                        echo -e "\n\e[1;33m[CONSOLE: SERVERS] Choosen: \e[37m$SERVER_NAME\n"
-                        filename="$SERVER_DIR/$SERVER_NAME"
-                        break
-                    else
-                        echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid number. \nPress 'ENTER' to try again."
-                        read PRESSED_KEY
-                    fi
+                    chooseServerType "$ACTION"
                     ;;
                 *)
-                    echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid option '$PRESSED_KEY'. \nPress 'ENTER' to try again."
-                    read PRESSED_KEY
+                    if [[ "$PRESSED_KEY" =~ '^[0-9]+$' ]]; then
+                        if (( PRESSED_KEY >= 1 && PRESSED_KEY <= ${#options[@]} )); then
+                            local SERVER_NAME="${options[PRESSED_KEY]}"
+                            echo -e "\n\e[1;33m[CONSOLE: SERVERS] Choosen: \e[37m$SERVER_NAME\n"
+                            filename="$SERVER_DIR/$SERVER_NAME"
+                            break
+                        else
+                            echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid number.\nPress 'ENTER' to try again."
+                            read
+                        fi
+                    else
+                        echo -ne "\n\e[1;33m[CONSOLE: SERVERS] \e[31mInvalid option '$PRESSED_KEY'.\nPress 'ENTER' to try again."
+                        read
+                    fi
                     ;;
             esac
         done
@@ -240,7 +243,7 @@ stopStartRestartServer() {
                     exit 1
                 fi
                 log "\e[1;30m[CONSOLE: SERVERS] Starting server $SERVER_NAME..."
-                zsh "$SERVER_DIR/start-server.sh"
+                bash "$SERVER_DIR/start-server.sh"
 
                 if ! tmux has-session -t "${SERVER_NAME//./_}" 2> /dev/null; then
                     log "\e[1;31m[CONSOLE: SERVERS] ERROR: Failed to start server $SERVER_NAME."

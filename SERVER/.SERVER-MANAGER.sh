@@ -340,6 +340,7 @@ serverMenu() {
 
 main() {
     while true; do
+        unset SERVER_NAME
         clear
         center_text "[SERVER MANAGER]"
         echo -e "\n\e[1;32m[1]\e[1;33m START SERVER"
