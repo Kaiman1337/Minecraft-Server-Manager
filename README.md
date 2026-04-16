@@ -228,6 +228,156 @@ This script is designed to run correctly in Bash on first run, while remaining u
 
 ---
 
+## Server Creation and Storage
+
+New Minecraft servers are created automatically inside the `SERVERS/` directory, grouped by server type and server name.
+
+A typical server path looks like this:
+
+```bash
+/home/Minecraft/SERVERS/FORGE/Forge-Server
+```
+
+Each generated server instance contains the files and folders required for normal Minecraft server operation, including server binaries, configuration files, world data, logs, and startup scripts. For example, a Forge server directory may contain folders such as `config/`, `defaultconfigs/`, `libraries/`, `logs/`, `mods/`, and `world/`, along with files like `eula.txt`, `server.properties`, `ops.json`, `whitelist.json`, and `start-server.sh`. [file:165]
+
+### Automatic Setup During Server Creation
+
+When a new server is created, the manager automatically performs the basic initialization steps required to make the instance ready to run:
+
+- accepts the Minecraft EULA automatically
+- generates and updates the required `server.properties` values
+- creates a dedicated `start-server.sh` launcher
+- prepares the server directory structure
+- stores metadata for later management and monitoring
+
+This makes the new server immediately usable by the management scripts without requiring manual post-install configuration.
+
+---
+
+## Example Server Layout
+
+A typical generated server directory contains:
+
+- `config/` — mod or loader-specific configuration files
+- `defaultconfigs/` — default configuration templates for modded environments
+- `libraries/` — runtime libraries used by the server software
+- `logs/` — per-server log output
+- `mods/` — installed modifications for Forge or other mod loaders
+- `world/` — the active world save
+- `eula.txt` — automatically accepted during server creation
+- `server.properties` — configured automatically with required server settings
+- `server-properties.env` — additional project-side environment metadata for the instance
+- `start-server.sh` — generated startup script used to launch the server correctly
+- `user_jvm_args.txt` — JVM arguments used by the server runtime
+- JSON files such as `ops.json`, `whitelist.json`, `banned-players.json`, and `banned-ips.json`
+
+This structure keeps each server self-contained while remaining compatible with the global management layer in the `SERVER/` directory. [file:165]
+
+---
+
+## Startup Script Generation
+
+Each created server receives its own `start-server.sh` file. This script is generated automatically and is responsible for launching the server safely inside a `tmux` session.
+
+The generated startup script contains server-specific values such as:
+
+- server name
+- Minecraft version
+- server software version
+- server JAR filename
+- server directory path
+- memory allocation
+- path to the shared `server-properties.env` file
+
+Because the file is generated per server, every instance can use its own startup configuration while still following the same management logic.
+
+---
+
+## What `start-server.sh` Does
+
+The generated `start-server.sh` script performs several checks before launching the server.
+
+### 1. Verifies the required Java version
+
+Before the server starts, the script checks the Minecraft version and maps it to the correct Java version.
+
+Typical logic:
+- older Minecraft versions use Java 8
+- Minecraft 1.17 to 1.19 use Java 17
+- Minecraft 1.20+ uses Java 21
+
+If the required Java version is not installed, the script installs the needed OpenJDK package automatically and switches the active Java binary to the correct version before startup.
+
+### 2. Switches Java automatically
+
+If Java is already installed but the wrong version is currently active, the script changes the system Java selection using `update-alternatives`.
+
+This allows different Minecraft versions to run correctly without requiring the user to switch Java manually every time.
+
+### 3. Checks whether the server is already running
+
+The script checks whether a `tmux` session with the configured server name already exists.
+
+- If the session exists, the server is treated as already online.
+- If the session does not exist, the script starts the server in a new detached `tmux` session.
+
+This prevents accidental duplicate launches and makes the current server state visible immediately.
+
+### 4. Displays current server status
+
+The script prints a formatted status summary showing whether the server is already online or is being started from an offline state.
+
+It also displays:
+- the active Java version information
+- configured memory allocation
+- currently free system memory
+- the list of active `tmux` sessions
+
+This makes the startup process easier to verify and debug directly from the terminal.
+
+### 5. Starts the server in `tmux`
+
+If the server is offline, the script launches it in a detached `tmux` session using the configured memory settings and server JAR.
+
+This allows the Minecraft server to keep running in the background even after the terminal is closed.
+
+---
+
+## Startup Behavior Summary
+
+In practice, the generated `start-server.sh` script answers these questions before doing anything:
+
+- Is the required Java version installed
+- Is the correct Java version currently active
+- Is the server already running
+- Should the server be started now
+- Should the script only show status because the server is already online
+
+This makes startup safer, more automatic, and much more convenient for multi-version Minecraft server management.
+
+---
+
+## Relationship With Monitoring
+
+The startup script works together with `.SERVER-MANAGER.sh` and `.CRASH-MONITOR.sh`.
+
+- `start-server.sh` is responsible for launching a server correctly
+- `.SERVER-MANAGER.sh` is responsible for interactive management actions
+- `.CRASH-MONITOR.sh` is responsible for detecting freezes or crashes and restarting the server if needed
+
+Together, these components create a full management flow:
+creation -> configuration -> launch -> monitoring -> automatic recovery
+
+---
+
+## Example Use Case
+
+A Forge server for Minecraft `1.21.1` may require Java `21`. When the generated `start-server.sh` script is executed, it first checks whether Java 21 is available and active. If not, it installs or switches Java automatically, verifies the server state, and then starts the server inside a named `tmux` session if it is currently offline.
+
+This allows a mixed environment with different Minecraft versions to be managed more safely from the same host.
+
+---
+
 ## Notes
 
 - The project depends heavily on `tmux` for background server session management
